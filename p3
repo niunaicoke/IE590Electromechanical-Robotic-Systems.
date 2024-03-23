@@ -1,0 +1,148 @@
+// Define pin connections and other constants
+const int potentiometerPin = A1;
+const int temperatureSensorPin = A0;
+const int buzzerPin = 6;
+const int buttonPin = 7;
+const int ledRedPin = 11;
+const int ledBluePin = 10;
+const int ledGreenPin = 9;
+const int potentiometerThreshold = 10; // Threshold for potentiometer change
+
+// Variables to hold sensor readings and state
+int setTemperature = 0;
+int actualTemperature = 0;
+bool alarmState = false;
+//not pring'cool' 'heat'; in the serial again
+String lastState = "";
+bool manualColorSet = false; // Flag to indicate manual color setting
+
+// Variables to hold the last set color
+int lastRedValue = 0;
+int lastGreenValue = 0;
+int lastBlueValue = 0;
+
+void setup() {
+  pinMode(potentiometerPin, INPUT);
+  pinMode(temperatureSensorPin, INPUT);
+  pinMode(buzzerPin, OUTPUT);
+  pinMode(buttonPin, INPUT_PULLUP);
+  pinMode(ledRedPin, OUTPUT);
+  pinMode(ledBluePin, OUTPUT);
+  pinMode(ledGreenPin, OUTPUT);
+
+  Serial.begin(9600);
+  Serial.println("Enter brightness for each color in the format: R,G,B");
+}
+
+
+//mannual set color
+void setColor(int red, int green, int blue) {
+  analogWrite(ledRedPin, red);
+  analogWrite(ledGreenPin, green);
+  analogWrite(ledBluePin, blue);
+  // Store the last color set
+  lastRedValue = red;
+  lastGreenValue = green;
+  lastBlueValue = blue;
+}
+
+void setColorFromSerial() {
+  if (Serial.available() > 0) {
+    String input = Serial.readStringUntil('\n');
+    input.trim();
+    int redValue = input.substring(0, input.indexOf(',')).toInt();
+    input = input.substring(input.indexOf(',') + 1);
+    int greenValue = input.substring(0, input.indexOf(',')).toInt();
+    input = input.substring(input.indexOf(',') + 1);
+    int blueValue = input.toInt();
+    setColor(redValue, greenValue, blueValue);
+    manualColorSet = true; // Indicate that color is set manually
+    Serial.print("Set to R:");
+    Serial.print(redValue);
+    Serial.print(" G:");
+    Serial.print(greenValue);
+    Serial.print(" B:");
+    Serial.println(blueValue);
+  }
+}
+
+void loop() {
+  int newSetTemperature = analogRead(potentiometerPin);
+  actualTemperature = analogRead(temperatureSensorPin);
+  
+  //alarm
+  if (digitalRead(buttonPin) == LOW) {
+     // 切换报警状态
+    alarmState = !alarmState;
+    if (alarmState) {
+      analogWrite(ledRedPin, 255);
+      analogWrite(ledGreenPin, 0);
+      analogWrite(ledBluePin, 0);
+        while (alarmState) {
+          tone(buzzerPin, 30);
+          delay(10);
+            //led
+          analogWrite(ledRedPin, 255);
+          analogWrite(ledGreenPin, 0);
+          analogWrite(ledBluePin, 0);
+          delay(10);
+          analogWrite(ledRedPin, 255);
+          analogWrite(ledGreenPin, 255);
+          analogWrite(ledBluePin, 255);
+          delay(10);
+          if (digitalRead(buttonPin) == LOW) {
+            delay(50); // Debounce delay
+            if (digitalRead(buttonPin) == LOW) {
+              alarmState = false;
+              noTone(buzzerPin);
+              break;
+              }
+            }
+        }
+      } 
+    // 如果报警状态为假，则确保蜂鸣器不发声
+    else {
+      noTone(buzzerPin);
+      }
+    
+  }
+
+  
+  //other function than alarm
+  if (!alarmState) {
+    noTone(buzzerPin);
+
+    if (abs(newSetTemperature - setTemperature) > potentiometerThreshold) {
+      setTemperature = newSetTemperature;
+      manualColorSet = false; // Reset manual color set flag
+    }
+
+    if (!manualColorSet) {
+      if (actualTemperature < setTemperature) {
+        setColor(map(setTemperature - actualTemperature, 0, 1023, 0, 255), 0, 0);
+        if (lastState != "Heating") {
+          Serial.println("Heating activated");
+          lastState = "Heating";
+        }
+      } else if (actualTemperature > setTemperature) {
+        setColor(0, 0, map(actualTemperature - setTemperature, 0, 1023, 0, 255));
+        if (lastState != "Cooling") {
+          Serial.println("Cooling activated");
+          lastState = "Cooling";
+        }
+      } else {
+        setColor(0, 255, 0);
+        if (lastState != "Stable") {
+          Serial.println("Temperature is stable");
+          lastState = "Stable";
+        }
+      }
+    } else {
+      // Restore the last manually set color if the system is not in alarm state
+      setColor(lastRedValue, lastGreenValue, lastBlueValue);
+    }
+  }
+
+  delay(100);
+  setColorFromSerial();
+}
