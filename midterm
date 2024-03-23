@@ -1,0 +1,194 @@
+#include <Servo.h>
+#include <LiquidCrystal.h>
+
+// Pin definitions
+const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
+const int startButtonPin = 13;
+const int servoButtonPin = 8;
+const int servoPin1 = 6;
+
+
+const int buzzerPin = 7;
+const int photoresistorPin = A4;
+const int ledPin = 9;
+const int joystickButtonPin = 10;
+const int joystickXPotPin = A2;
+const int joystickYPotPin = A3;
+
+// Initialize the LCD
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+// Initialize the servo
+Servo servoMotor1;
+
+
+// Game state variables
+int ballsLeft = 3;
+int points = 0;
+bool gameStarted = false;
+int lastJoystickX = 0;
+int lastJoystickY = 0;
+
+void setup() {
+  // Set up the LCD's number of columns and rows
+  lcd.begin(16, 2);
+  Serial.begin(9600);
+
+  // Attach the servo motor to its pin
+  servoMotor1.attach(servoPin1);
+
+
+  // Configure pin modes for inputs and outputs
+  pinMode(startButtonPin, INPUT_PULLUP);
+  pinMode(servoButtonPin, INPUT_PULLUP);
+  pinMode(buzzerPin, OUTPUT);
+  pinMode(photoresistorPin, INPUT);
+  pinMode(ledPin, OUTPUT);
+  pinMode(joystickButtonPin, INPUT_PULLUP);
+
+  // Play welcome tune
+  playWelcomeTune();
+
+  // Show welcome message on the LCD
+  lcd.print("Welcome2Pinball");
+
+  // Initialize the LED
+  digitalWrite(ledPin, HIGH);
+  lastJoystickX = analogRead(joystickXPotPin);
+  lastJoystickY = analogRead(joystickYPotPin);
+}
+
+void loop() {
+  // Check if the start button is pressed
+  if (digitalRead(startButtonPin) == HIGH) {
+    startGame();
+  }
+
+  if (gameStarted) {
+    // Check if the servo button is pressed
+    if (digitalRead(servoButtonPin) == HIGH) {
+      // Activate the servo motor
+      flipServo1();
+
+    }
+
+    // Check the photoresistor to see if a ball has passed
+    checkPhotoresistor();
+
+    // Check if the joystick is hit
+    if (digitalRead(joystickButtonPin) == HIGH) {
+      bumperHit();
+    }
+
+    checkJoystick();
+  }
+}
+
+void checkPhotoresistor() {
+  int val=analogRead(photoresistorPin);
+  if (analogRead(photoresistorPin)!=val){
+    ballLost();
+    delay(10);
+  }
+
+}
+
+void flipServo1() {
+  servoMotor1.write(180); // Adjust to your servo's angle for flipper activation
+  delay(500); // Adjust delay to your preference
+  servoMotor1.write(0); // Return to the original position
+}
+
+
+
+void playWelcomeTune() {
+  // Play a welcome tune using the buzzer
+  tone(buzzerPin, 262, 200);
+  delay(200);
+  tone(buzzerPin, 294, 200);
+  delay(200);
+  tone(buzzerPin, 330, 200);
+  delay(200);
+  noTone(buzzerPin);
+}
+
+void playGameOverTune() {
+  // Play a game over tune using the buzzer
+  tone(buzzerPin, 330, 200);
+  delay(200);
+  tone(buzzerPin, 294, 200);
+  delay(200);
+  tone(buzzerPin, 262, 200);
+  delay(200);
+  noTone(buzzerPin);
+}
+
+void playBumperHitSound() {
+  // Play a sound when the bumper is hit
+  tone(buzzerPin, 440, 100);
+  delay(100);
+  noTone(buzzerPin);
+}
+
+void startGame() {
+  gameStarted = true;
+  ballsLeft = 3;
+  points = 0;
+  // Update the LCD with the new game state
+  lcd.clear();
+  lcd.print("Balls left: ");
+  lcd.print(ballsLeft);
+  lcd.setCursor(0, 1); // Move to the second line
+  lcd.print("Points: ");
+  lcd.print(points);
+}
+
+void ballLost() {
+  //Serial.print('xassasx');
+
+  ballsLeft--;
+  // Update the LCD with the new number of balls left
+  
+  lcd.setCursor(0, 0); // Move to the first line
+  lcd.print("Balls left: ");
+  lcd.print(ballsLeft);
+  delay(500); // Debounce delay
+  if (ballsLeft <= 0) {
+    // Play game over tune
+    playGameOverTune();
+    // Show game over message
+    lcd.clear();
+    lcd.print("GAME OVER");
+    gameStarted = false;
+  }
+}
+
+void bumperHit() {
+  points++;
+  // Play bumper hit sound
+  playBumperHitSound();
+  // Update the LCD with the new points
+  lcd.setCursor(0, 1); // Move to the second line
+  lcd.print("Points:     "); // Clear previous points
+  lcd.setCursor(0, 1); // Move to the second line
+  lcd.print("Points: ");
+  lcd.print(points);
+  delay(500); // Debounce delay
+}
+
+void checkJoystick() {
+  int currentJoystickX = analogRead(joystickXPotPin);
+  int currentJoystickY = analogRead(joystickYPotPin);
+
+  // Check if there's a significant change in the joystick's position
+  if (abs(currentJoystickX - lastJoystickX) > 10 || abs(currentJoystickY - lastJoystickY) > 10) {
+    // If there's a significant change, consider it as a hit
+    bumperHit();
+  }
+
+  // Update the last readings
+  lastJoystickX = currentJoystickX;
+  lastJoystickY = currentJoystickY;
+}
+
+
+
