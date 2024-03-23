@@ -1,0 +1,81 @@
+// Define pin connections & initial state
+const int joystickXPin = A1; // Joystick X-axis
+const int potentiometerPin = A0; // Potentiometer
+const int tiltSwitchPin = 4; // Tilt switch
+
+const int leftLedPin = 9; // PWM capable pin
+const int straightLedPin = 10; // PWM capable pin
+const int rightLedPin = 11; // PWM capable pin
+
+int speedLimit = 95; // Maximum speed limit
+bool speedLimitActive = false; // Speed limit flag
+
+int lastSpeed = -1; // Store the last speed value
+String lastDirection = ""; // Store the last direction
+
+void setup() {
+  pinMode(joystickXPin, INPUT);
+  pinMode(potentiometerPin, INPUT);
+  pinMode(tiltSwitchPin, INPUT);
+
+  pinMode(leftLedPin, OUTPUT);
+  pinMode(straightLedPin, OUTPUT);
+  pinMode(rightLedPin, OUTPUT);
+
+  Serial.begin(9600);
+}
+
+void loop() {
+  int joystickX = analogRead(joystickXPin);
+  int potValue = analogRead(potentiometerPin);
+  int tiltSwitchState = digitalRead(tiltSwitchPin);
+
+  // Map the potentiometer value to a speed range of 0-100
+  int speed = map(potValue, 0, 1023, 0, 100);
+
+  // Check the tilt switch to set the speed limit
+  if (tiltSwitchState == HIGH && !speedLimitActive) {
+    speedLimit = speed;
+    speedLimitActive = true;
+  } else if (tiltSwitchState == LOW) {
+    speedLimitActive = false;
+  }
+
+  // If speed limit is active, cap the speed
+  if (speedLimitActive && speed > speedLimit) {
+    speed = speedLimit;
+  }
+
+  // Map the joystick X value to direction
+  String direction;
+  if (joystickX < 341) {
+    direction = "left";
+    analogWrite(leftLedPin, map(speed, 0, 100, 0, 255));
+    analogWrite(straightLedPin, 0);
+    analogWrite(rightLedPin, 0);
+  } else if (joystickX > 682) {
+    direction = "right";
+    analogWrite(leftLedPin, 0);
+    analogWrite(straightLedPin, 0);
+    analogWrite(rightLedPin, map(speed, 0, 100, 0, 255));
+  } else {
+    direction = "straight";
+    analogWrite(leftLedPin, 0);
+    analogWrite(straightLedPin, map(speed, 0, 100, 0, 255));
+    analogWrite(rightLedPin, 0);
+  }
+
+  // Print the speed and direction to the serial monitor only if there's a change
+  if (speed != lastSpeed || direction != lastDirection) {
+    Serial.print("Speed: ");
+    Serial.print(speed);
+    Serial.print(" km/h, Direction: ");
+    Serial.println(direction);
+
+    lastSpeed = speed; // Update the last speed
+    lastDirection = direction; // Update the last direction
+  }
+
+  // Short delay before the next loop iteration
+  delay(100);
+}
