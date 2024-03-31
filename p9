@@ -1,0 +1,126 @@
+import cv2 as cv
+import numpy as np
+import os
+from matplotlib import pyplot as plt
+import time
+from telemetrix import telemetrix
+import time
+
+
+
+RGB_LED_RED_PIN = 6
+RGB_LED_GREEN_PIN = 3
+RGB_LED_BLUE_PIN = 5
+SERVO_MOTOR_PIN = 10
+
+
+
+
+
+board = telemetrix.Telemetrix()
+
+board.set_pin_mode_digital_output(RGB_LED_RED_PIN)
+board.set_pin_mode_digital_output(RGB_LED_GREEN_PIN)
+board.set_pin_mode_digital_output(RGB_LED_BLUE_PIN)
+
+# Set up the DC Motor pin as a digital output
+board.set_pin_mode_servo(SERVO_MOTOR_PIN, 100, 3000)
+
+
+
+
+def set_rgb_led_color(red, green, blue):
+    # Set the RGB LED color
+    board.digital_write(RGB_LED_RED_PIN, red)
+    board.digital_write(RGB_LED_GREEN_PIN, green)
+    board.digital_write(RGB_LED_BLUE_PIN, blue)
+
+
+
+
+
+
+
+
+
+# Define the path to the folder containing the images
+folder_path = "/Users/scottliu/Desktop/assignment"
+
+# Get a list of files in the folder
+files = os.listdir(folder_path)
+
+# Loop over each file in the directory
+for file in files:
+    # Construct the full path to the file
+    path = os.path.join(folder_path, file)
+    
+    
+    
+    
+    img_BGR = cv.imread(path) 
+    img_RGB = cv.cvtColor(img_BGR, cv.COLOR_BGR2RGB)
+
+
+
+    img_gray = cv.imread(path, cv.IMREAD_GRAYSCALE)
+
+
+    ret, img_binary = cv.threshold(img_gray, 127, 255, cv.THRESH_BINARY_INV)
+
+    kernel_size = 3
+    kernel = np.ones((kernel_size, kernel_size), np.uint8)
+
+
+    img_eroded = cv.erode(img_binary, kernel, iterations=10)
+    img_dilated = cv.dilate(img_eroded, kernel, iterations=18)
+    plt.subplot(1,2,2) 
+    plt.imshow(img_dilated, cmap='gray')
+    plt.title("processed")
+    set_rgb_led_color(255, 0, 0)  # RED
+    time.sleep(2)
+    plt.xticks([]),plt.yticks([])
+    plt.show()
+    contours,hierarchy = cv.findContours(img_dilated, 1, 2)
+    if not contours:  # If contours list is empty
+            print(f"No contours found in the image {file}. Skipping this image.")
+            continue  # Skip the rest of this iteration and move to the next file
+    cnt = contours[0]
+    M = cv.moments(cnt)
+    area = cv.contourArea(cnt)
+    print("the area occupied by the pen is:", area, "squared pixels")
+    img_boxes = np.copy(img_RGB) 
+    x,y,w,h = cv.boundingRect(cnt)
+    cv.rectangle(img_boxes,(x,y),(x+w,y+h),(0,255,0),8) #writes a rectangle of linewidth 8pixels on img_boxes
+    rect = cv.minAreaRect(cnt)
+    box = cv.boxPoints(rect)
+    box = np.int0(box) #converting the vertices of the box in integers
+    cv.drawContours(img_boxes,[box],0,(255,0,0),8) #writes minimal area bounding box on img_boxes
+    plt.imshow(img_RGB)
+    plt.title("original")
+    plt.xticks([]),plt.yticks([])
+    plt.show()
+    plt.imshow(img_boxes)
+    plt.title("img_boxes")
+    plt.xticks([]),plt.yticks([])
+    plt.show()
+    
+    degree=np.around(rect[2],2)
+    
+    if file == '05_pen.jpg' or '12_pen.jpg':
+        board.servo_write(SERVO_MOTOR_PIN, 180-int(degree))
+        time.sleep(1)  # Wait for the servo to reach the position
+    else:    
+        board.servo_write(SERVO_MOTOR_PIN, int(degree))
+        time.sleep(1)  # Wait for the servo to reach the position
+
+    # Rotate servo back to the original position
+    board.servo_write(SERVO_MOTOR_PIN, 180)
+    time.sleep(1)  # Wait for the servo to reach the position
+    
+    
+    
+    set_rgb_led_color(0, 0, 255)  # GREEN
+    print("the angle of rotation of the pen is", degree, "degrees")
+    contours=[]
+    
+    time.sleep(5)
