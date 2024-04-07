@@ -1,0 +1,222 @@
+import cv2 as cv
+import numpy as np
+import os
+from matplotlib import pyplot as plt
+import time
+import numpy as np
+import os
+import cv2 as cv
+from matplotlib import pyplot as plt
+import time
+import ipywidgets as widgets
+from IPython.display import display
+from telemetrix import telemetrix
+import time
+import cv2 as cv
+import numpy as np
+import os
+from matplotlib import pyplot as plt
+import time
+from telemetrix import telemetrix
+import sys
+import numpy as np
+import os
+import cv2 as cv
+from matplotlib import pyplot as plt
+import pickle
+import pygame
+import numpy as np
+import cv2 as cv
+import time
+from IPython.display import display, clear_output
+import matplotlib.pyplot as plt
+from ipywidgets import widgets
+import os
+
+
+
+
+
+# Initialize pygame mixer
+pygame.mixer.init(frequency=22050, size=-16, channels=2)
+
+# Create a simple sound with a given frequency (Hz) and duration (milliseconds)
+def play_tone(frequency, duration):
+    # Create an array with sine wave samples at the given frequency
+    sample_rate = 22050  # Sample rate used by pygame.mixer
+    n_samples = int(round(duration * sample_rate / 1000.0))
+    buf = np.zeros((n_samples, 2), dtype=np.int16)
+    max_sample = 2**(16 - 1) - 1
+    for s in range(n_samples):
+        t = float(s) / sample_rate  # Time index
+        buf[s][0] = int(round(max_sample * np.sin(2 * np.pi * frequency * t)))  # Left channel
+        buf[s][1] = int(round(max_sample * np.sin(2 * np.pi * frequency * t)))  # Right channel
+
+    sound = pygame.sndarray.make_sound(buf)
+    sound.play(-1)  # The -1 means to loop the sound
+    pygame.time.delay(duration)
+    sound.stop()
+
+
+RGB_LED_RED_PIN = 6
+RGB_LED_GREEN_PIN = 3
+RGB_LED_BLUE_PIN = 5
+SERVO_MOTOR_PIN = 10
+BUTTON_PIN = 13
+BUZZER_PIN = 11
+
+
+
+
+
+board = telemetrix.Telemetrix()
+
+board.set_pin_mode_digital_output(RGB_LED_RED_PIN)
+board.set_pin_mode_digital_output(RGB_LED_GREEN_PIN)
+board.set_pin_mode_digital_output(RGB_LED_BLUE_PIN)
+
+# Set up the DC Motor pin as a digital output
+board.set_pin_mode_servo(SERVO_MOTOR_PIN, 100, 3000)
+
+
+        
+        
+
+def set_rgb_led_color(red, green, blue):
+    # Set the RGB LED color
+    board.digital_write(RGB_LED_RED_PIN, red)
+    board.digital_write(RGB_LED_GREEN_PIN, green)
+    board.digital_write(RGB_LED_BLUE_PIN, blue)
+    
+    
+
+    
+def faceCV():
+    # Enter the paths for your image and cascade files here
+    imagePath = 'cap_image.jpg'
+    labelsPath = 'labels.pickle'
+
+    # Create the haar cascade (XML file that contains the data to detect faces)
+    faceCascade = cv.CascadeClassifier(cv.data.haarcascades + 'haarcascade_frontalface_default.xml') #Face Classifier
+
+    # Create the recognizer
+    recognizer = cv.face.LBPHFaceRecognizer_create()
+    # Import the training data for the recognizer
+    recognizer.read("trainer.yml")
+
+    # Import the labels created by the facesTrain program
+    labels = {}
+    with open("labels.pickle", 'rb') as pickleFile:
+        original_labels = pickle.load(pickleFile)
+        #invert the order:
+        labels = {v:k for k, v in original_labels.items()}
+
+    # Read the image
+    image = cv.imread(imagePath)
+    image_RGB= cv.cvtColor(image, cv.COLOR_BGR2RGB)
+    plt.title("Original Image")
+    plt.imshow(image_RGB) # open the image as RGB
+    plt.xticks([]),plt.yticks([])
+    plt.show()
+
+    #Transform the image to Grayscale
+    gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+    plt.title("Gray Image")
+    plt.imshow(gray, cmap='gray') # open the image as RGB
+    plt.xticks([]),plt.yticks([])
+    plt.show()
+
+    # Detect faces in the image
+    faces = faceCascade.detectMultiScale(
+        gray,
+        scaleFactor=1.21, #1.25
+        minNeighbors=4, #5
+        minSize=(20, 20), #30, 30
+        flags = cv.CASCADE_SCALE_IMAGE
+    )
+    print(faces)
+
+    #print "Found {0} faces!".format(len(faces))
+    print('Faces found: ', len(faces))
+
+    # Draw a rectangle around the faces
+    for (x, y, w, h) in faces:
+        cv.rectangle(image_RGB, (x, y), (x+w, y+h), (0, 255, 0), 5)
+        roi_gray = gray[y:y+h, x:x+w]
+        id_now, confidence = recognizer.predict(roi_gray)
+        print("detected = ", labels[id_now])
+        print("confidence = ", confidence)
+
+    plt.title("Faces Found")
+    plt.imshow(image_RGB) # open the image as RGB
+    plt.xticks([]),plt.yticks([])
+    plt.show()
+    
+    if int(labels[id_now])==4 and int(confidence)>=68:
+        return True 
+    else:
+        return False
+    
+    
+    
+    
+    
+    
+    
+    
+button_pressed = False
+def button_callback(data):
+    global button_pressed
+    if data[2] == 0:  # Check if button is pressed (LOW because of the pull-up resistor)
+        button_pressed = True
+board.set_pin_mode_digital_input_pullup(BUTTON_PIN, callback=button_callback)
+def wait_for_button_press():
+    global button_pressed
+    while not button_pressed:
+        time.sleep(0.1)  # Sleep to prevent busy-waiting
+    button_pressed = False  # Reset the button state for the next check    
+
+
+
+    
+    
+    
+while True:
+    
+    camera = cv.VideoCapture(0)
+
+        # Function to capture and save the image
+    def capture_image():
+            # Take a picture, the first one tends to be dark
+        for i in range(2):
+            success, img_captured = camera.read()
+            time.sleep(0.3)  # Wait for the webcam to adjust light
+
+        save_path = '/Users/scottliu/Desktop/W13 Image Recognition/cap_image.jpg'
+        img_captured = img_captured[:, :-30]
+        cv.imwrite(save_path, img_captured)  # Save the image
+        return img_captured
+
+    capture_image()    
+    
+    
+    
+    board.servo_write(SERVO_MOTOR_PIN, 180)
+    set_rgb_led_color(0 , 255, 0)
+    time.sleep(5)
+    if faceCV()==False:
+        set_rgb_led_color(255, 0, 0)  # RED
+        play_tone(750, 1000)
+        wait_for_button_press()
+        
+    else:
+        set_rgb_led_color(0, 0, 255)  # GREEN
+        board.servo_write(SERVO_MOTOR_PIN, 90)
+        wait_for_button_press()
+        
+        
+
+        
+        
+    
+pygame.quit()
