@@ -1,0 +1,173 @@
+# CODE TO TRACK FINGERS WITH MEDIAPIPE
+import cv2 as cv
+import mediapipe as mp
+import cv2 as cv
+import numpy as np
+import os
+from matplotlib import pyplot as plt
+import time
+import numpy as np
+import os
+import cv2 as cv
+from matplotlib import pyplot as plt
+import time
+import ipywidgets as widgets
+from IPython.display import display
+from telemetrix import telemetrix
+import time
+import cv2 as cv
+import numpy as np
+import os
+from matplotlib import pyplot as plt
+import time
+from telemetrix import telemetrix
+import sys
+import numpy as np
+import os
+import cv2 as cv
+from matplotlib import pyplot as plt
+import pickle
+
+import numpy as np
+import cv2 as cv
+import time
+from IPython.display import display, clear_output
+import matplotlib.pyplot as plt
+from ipywidgets import widgets
+import os
+from playsound import playsound
+
+
+
+
+
+RGB_LED_RED_PIN = 6
+RGB_LED_GREEN_PIN = 3
+RGB_LED_BLUE_PIN = 5
+SERVO_MOTOR_PIN = 10
+
+board = telemetrix.Telemetrix()
+
+board.set_pin_mode_digital_output(RGB_LED_RED_PIN)
+board.set_pin_mode_digital_output(RGB_LED_GREEN_PIN)
+board.set_pin_mode_digital_output(RGB_LED_BLUE_PIN)
+
+# Set up the DC Motor pin as a digital output
+board.set_pin_mode_servo(SERVO_MOTOR_PIN, 100, 3000)
+
+def set_rgb_led_color(red, green, blue):
+    # Set the RGB LED color
+    board.digital_write(RGB_LED_RED_PIN, red)
+    board.digital_write(RGB_LED_GREEN_PIN, green)
+    board.digital_write(RGB_LED_BLUE_PIN, blue)
+
+# Constants
+mp_hands = mp.solutions.hands
+mp_drawing = mp.solutions.drawing_utils
+
+# Define a function to count fingers raised
+def count_fingers(landmarks):
+   # Define finger tips and their corresponding base points
+   finger_tips = [
+       mp_hands.HandLandmark.WRIST,
+       mp_hands.HandLandmark.INDEX_FINGER_TIP,
+       mp_hands.HandLandmark.MIDDLE_FINGER_TIP,
+       mp_hands.HandLandmark.RING_FINGER_TIP,
+       mp_hands.HandLandmark.PINKY_TIP,
+   ]
+   finger_bases = [
+       mp_hands.HandLandmark.WRIST,
+       mp_hands.HandLandmark.INDEX_FINGER_MCP,
+       mp_hands.HandLandmark.MIDDLE_FINGER_MCP,
+       mp_hands.HandLandmark.RING_FINGER_MCP,
+       mp_hands.HandLandmark.PINKY_MCP,
+   ]
+
+   # Count raised fingers
+   finger_count = 0
+   for tip, base in zip(finger_tips, finger_bases):
+       if landmarks.landmark[tip].y < landmarks.landmark[base].y:  # Check if finger tip is below base
+           finger_count += 1
+
+   # Special case for thumb - check against wrist and index finger MCP
+   if (
+       landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP].y
+       < landmarks.landmark[mp_hands.HandLandmark.WRIST].y
+       and landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP].y
+       < landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP].y
+   ):
+       finger_count += 1
+
+   return finger_count
+
+
+# Initialize drawing and hand detection objects
+drawing_spec = mp_drawing.DrawingSpec(thickness=2, circle_radius=1)
+hands = mp_hands.Hands(max_num_hands=2, min_detection_confidence=0.7, min_tracking_confidence=0.5)
+
+# Open webcam
+cap = cv.VideoCapture(0)
+
+
+
+
+
+# Main loop
+while True:
+   # Capture frame
+   ret, frame = cap.read()
+
+   # Convert to RGB for MediaPipe
+   rgb_image = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+
+   # Detect hands
+   results = hands.process(rgb_image)
+
+   # Initialize total fingers
+   total_fingers = 0
+
+   # Draw landmarks and count fingers if hands are detected
+   if results.multi_hand_landmarks:
+       for hand_landmarks in results.multi_hand_landmarks:
+           # Draw hand connections
+           mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS, drawing_spec)
+
+           # Count fingers
+           finger_count = count_fingers(hand_landmarks)
+           if finger_count == 2:
+               set_rgb_led_color(255, 0, 0)  # RED
+               playsound('/Users/lordoftherings/Desktop/W14 Object Tracking/1.mp3')
+               board.servo_write(SERVO_MOTOR_PIN, 0)
+           elif finger_count == 1:    
+               set_rgb_led_color(0, 0, 255)  # GREEN
+               playsound('/Users/lordoftherings/Desktop/W14 Object Tracking/Here is the scalpel.mp3')
+               board.servo_write(SERVO_MOTOR_PIN, 90)
+           elif finger_count == 3:
+               continue
+           elif finger_count == 4:
+               continue     
+           else:  
+               set_rgb_led_color(0, 255, 0)  # blue
+               playsound('/Users/lordoftherings/Desktop/W14 Object Tracking/Here is the gauze.mp3') 
+               board.servo_write(SERVO_MOTOR_PIN, 180)
+           total_fingers += finger_count
+            
+
+       # Display total finger count on frame
+       cv.putText(frame, f"Total Fingers: {total_fingers}", (10, 30), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+   # Display frame
+   cv.imshow('MediaPipe Hands', frame)
+
+   # Check total fingers and perform actions
+   
+
+   # Exit on 'q' press
+   if cv.waitKey(1) & 0xFF == ord('q'):
+       break
+
+# Release resources
+cap.release()
+cv.destroyAllWindows()
+
+
