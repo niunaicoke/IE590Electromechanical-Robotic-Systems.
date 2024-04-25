@@ -1,0 +1,387 @@
+import cv2 as cv
+import numpy as np
+import os
+from matplotlib import pyplot as plt
+import time
+import numpy as np
+import os
+import cv2 as cv
+from matplotlib import pyplot as plt
+import time
+import ipywidgets as widgets
+from IPython.display import display
+from telemetrix import telemetrix
+import time
+import cv2 as cv
+import numpy as np
+import os
+from matplotlib import pyplot as plt
+import time
+from telemetrix import telemetrix
+import sys
+import numpy as np
+import os
+import cv2 as cv
+from matplotlib import pyplot as plt
+import pickle
+import pygame
+import numpy as np
+import cv2 as cv
+import time
+from IPython.display import display, clear_output
+import matplotlib.pyplot as plt
+from ipywidgets import widgets
+import os
+import cv2 as cv
+import mediapipe as mp
+import cv2 as cv
+import numpy as np
+import os
+from matplotlib import pyplot as plt
+import time
+import numpy as np
+import os
+import cv2 as cv
+from matplotlib import pyplot as plt
+import time
+import ipywidgets as widgets
+from IPython.display import display
+from telemetrix import telemetrix
+import time
+import cv2 as cv
+import numpy as np
+import os
+from matplotlib import pyplot as plt
+import time
+from telemetrix import telemetrix
+import sys
+import numpy as np
+import os
+import cv2 as cv
+from matplotlib import pyplot as plt
+import pickle
+
+import numpy as np
+import cv2 as cv
+import time
+from IPython.display import display, clear_output
+import matplotlib.pyplot as plt
+from ipywidgets import widgets
+import os
+from playsound import playsound
+
+face=False
+
+#ultraonic
+TRIGGER_PIN = 10
+ECHO_PIN = 11
+REPORT_TYPE = 0
+DISTANCE = 2
+last_DISTANCE=0
+TIME = 3
+def the_callback1(data):
+    global DISTANCE
+    date = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(data[3]))
+    #print(f'Sonar Report: Trigger Pin: {data[1]} Distance: {data[2]} Time: {date}')
+    DISTANCE=data[2]
+    
+def sonar(my_board, trigger_pin, echo_pin, callback):
+    my_board.set_pin_mode_sonar(trigger_pin, echo_pin, callback)
+    # wait forever
+    # while True:
+    #     try:
+    #         time.sleep(.01)
+    #     except KeyboardInterrupt:
+    #         my_board.shutdown()
+    #         sys.exit(0)
+
+
+
+
+
+
+
+
+
+
+
+LED_PIN = 3
+DC_MOTOR_PIN = 2
+SERVO_MOTOR_PIN = 8
+DHT_SENSOR_PIN = 9
+
+
+
+
+#potentialmeter
+speed=0
+last_speed=0
+POTENTIALMETER_PIN = 0  
+
+def the_callback0(data):
+    global speed
+    CB_PIN_MODE = 0
+    CB_PIN = 1
+    CB_VALUE = 2
+    CB_TIME = 3
+    date = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(data[CB_TIME]))
+    speed=data[CB_VALUE]
+
+    
+    
+    
+    
+    
+    
+    print("speed",speed)    
+def analog_in(my_board, pin):
+    my_board.set_pin_mode_analog_input(pin, 30, the_callback0)
+    my_board.set_analog_scan_interval(250)
+
+
+
+
+
+#DHT
+temp=0
+last_temp=0
+def the_callback(data):
+    global temp
+    if data[1]:
+        # error message
+        date = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(data[4]))
+        # print(f'DHT Error Report: Pin: {data[2]} DHT Type: {data[3]} Error: {data[1]} Time: {date}')
+    else:
+        # valid data
+        temp = int(data[5])  # Update the global temperature variable
+        humidity = data[4]
+        date = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(data[6]))
+        #print(f'DHT Valid Data Report: Pin: {data[2]} DHT Type: {data[3]} Humidity: {humidity} Temperature: {temp} Time: {date}')
+def dht(board, DHT_SENSOR_PIN, callback, dht_type):
+    board.set_pin_mode_dht(DHT_SENSOR_PIN, callback, dht_type)
+
+
+
+board = telemetrix.Telemetrix()
+
+board.set_pin_mode_digital_output(LED_PIN)
+board.set_pin_mode_servo(SERVO_MOTOR_PIN, 100, 3000)
+board.set_pin_mode_digital_output(DC_MOTOR_PIN)
+
+def set_dc_motor(state):
+    # Set the DC motor state (ON/OFF)
+    board.digital_write(DC_MOTOR_PIN, state)
+
+def faceCV():
+    # Enter the paths for your image and cascade files here
+    imagePath = 'cap_image.jpg'
+    labelsPath = 'labels.pickle'
+
+    # Create the haar cascade (XML file that contains the data to detect faces)
+    faceCascade = cv.CascadeClassifier(cv.data.haarcascades + 'haarcascade_frontalface_default.xml') #Face Classifier
+
+    # Create the recognizer
+    recognizer = cv.face.LBPHFaceRecognizer_create()
+    # Import the training data for the recognizer
+    recognizer.read("trainer.yml")
+
+    # Import the labels created by the facesTrain program
+    labels = {}
+    with open("labels.pickle", 'rb') as pickleFile:
+        original_labels = pickle.load(pickleFile)
+        #invert the order:
+        labels = {v:k for k, v in original_labels.items()}
+
+    # Read the image
+    image = cv.imread(imagePath)
+    image_RGB= cv.cvtColor(image, cv.COLOR_BGR2RGB)
+    plt.title("Original Image")
+    plt.imshow(image_RGB) # open the image as RGB
+    plt.xticks([]),plt.yticks([])
+    plt.show()
+
+    #Transform the image to Grayscale
+    gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+    plt.title("Gray Image")
+    plt.imshow(gray, cmap='gray') # open the image as RGB
+    plt.xticks([]),plt.yticks([])
+    plt.show()
+
+    # Detect faces in the image
+    faces = faceCascade.detectMultiScale(
+        gray,
+        scaleFactor=1.21, #1.25
+        minNeighbors=4, #5
+        minSize=(20, 20), #30, 30
+        flags = cv.CASCADE_SCALE_IMAGE
+    )
+    print(faces)
+
+    print('Faces found: ', len(faces))
+
+    # Draw a rectangle around the faces
+    for (x, y, w, h) in faces:
+        cv.rectangle(image_RGB, (x, y), (x+w, y+h), (0, 255, 0), 5)
+        roi_gray = gray[y:y+h, x:x+w]
+        id_now, confidence = recognizer.predict(roi_gray)
+        print("detected = ", labels[id_now])
+        print("confidence = ", confidence)
+
+    plt.title("Faces Found")
+    plt.imshow(image_RGB) 
+    plt.xticks([]),plt.yticks([])
+    plt.show()
+    
+    if int(labels[id_now])==4 and int(confidence)>=68:
+        return True 
+    else:
+        return False
+    
+camera = cv.VideoCapture(0)
+def capture_image():
+    for i in range(2):
+        success, img_captured = camera.read()
+        time.sleep(0.3)  
+
+    save_path = '/Users/lordoftherings/Desktop/W13 Image Recognition/cap_image.jpg'
+    img_captured = img_captured[:, :-30]
+    cv.imwrite(save_path, img_captured)  
+    return img_captured
+
+capture_image()  
+
+if faceCV()==False:
+    face==False
+    print("user not indentified")
+else:
+    face=True
+camera.release()
+cv.destroyAllWindows() 
+
+
+dht(board, DHT_SENSOR_PIN, the_callback, 11) 
+sonar(board, TRIGGER_PIN, ECHO_PIN, the_callback1)
+
+
+mp_hands = mp.solutions.hands
+mp_drawing = mp.solutions.drawing_utils
+
+# Define a function to count fingers raised
+def count_fingers(landmarks):
+   # Define finger tips and their corresponding base points
+    finger_tips = [
+       mp_hands.HandLandmark.WRIST,
+       mp_hands.HandLandmark.INDEX_FINGER_TIP,
+       mp_hands.HandLandmark.MIDDLE_FINGER_TIP,
+       mp_hands.HandLandmark.RING_FINGER_TIP,
+       mp_hands.HandLandmark.PINKY_TIP,
+    ]
+    finger_bases = [
+       mp_hands.HandLandmark.WRIST,
+       mp_hands.HandLandmark.INDEX_FINGER_MCP,
+       mp_hands.HandLandmark.MIDDLE_FINGER_MCP,
+       mp_hands.HandLandmark.RING_FINGER_MCP,
+       mp_hands.HandLandmark.PINKY_MCP,
+    ]
+
+   # Count raised fingers
+    finger_count = 0
+    for tip, base in zip(finger_tips, finger_bases):
+        if landmarks.landmark[tip].y < landmarks.landmark[base].y:  # Check if finger tip is below base
+            finger_count += 1
+
+   # Special case for thumb - check against wrist and index finger MCP
+    if (
+       landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP].y
+       < landmarks.landmark[mp_hands.HandLandmark.WRIST].y
+       and landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP].y
+       < landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP].y
+   ):
+        finger_count += 1
+
+    return finger_count
+
+
+# Initialize drawing and hand detection objects
+drawing_spec = mp_drawing.DrawingSpec(thickness=2, circle_radius=1)
+hands = mp_hands.Hands(max_num_hands=2, min_detection_confidence=0.7, min_tracking_confidence=0.5)
+
+# Open webcam
+cap = cv.VideoCapture(0)
+
+while face ==True:
+    
+    analog_in(board, POTENTIALMETER_PIN)
+    if speed != last_speed:
+        print(speed)
+    last_speed=speed
+    
+
+        
+        
+    if temp!= last_temp:
+        print("temp",temp)
+    last_temp=temp    
+    if temp is not None:
+        # Check if the temperature is too high
+        if temp >= 22.5:
+            board.digital_write(LED_PIN, 1)
+            playsound('/Users/lordoftherings/Desktop/W13 Image Recognition/Survivor found.mp3') 
+        else:
+            board.digital_write(LED_PIN, 0)
+    time.sleep(1)  # Wait for a second before checking the temperature again
+
+    
+    
+    if DISTANCE!=last_DISTANCE:  
+        print("distance",DISTANCE)
+    if DISTANCE<100:
+        set_dc_motor(0)
+    else:
+        set_dc_motor(1)
+        time.sleep(int(speed)/100)
+    last_DISTANCE=DISTANCE
+
+        
+        
+
+    ret, frame = cap.read()
+    rgb_image = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+    results = hands.process(rgb_image)
+    total_fingers = 0
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+           # Draw hand connections
+            mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS, drawing_spec)
+            finger_count = count_fingers(hand_landmarks)
+            if finger_count == 1:
+                board.servo_write(SERVO_MOTOR_PIN, 120)   
+            else:  
+                board.servo_write(SERVO_MOTOR_PIN, 90)
+            total_fingers += finger_count
+        cv.putText(frame, f"Total Fingers: {total_fingers}", (10, 30), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    cv.imshow('MediaPipe Hands', frame)
+    if cv.waitKey(1) & 0xFF == ord('q'):
+        break
+cap.release()
+cv.destroyAllWindows()
+
+while True:
+    set_dc_motor(1)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        
+    
+ 
+    
+
+
+
